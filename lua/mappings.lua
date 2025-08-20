@@ -16,8 +16,9 @@ create_command("BuildProject", function(opts)
 
   -- If clean is given clean the build folder
   if opts.args == "clean" then
-    print "Cleaning the build folder..."
+    print "🧹 Cleaning the build folder..."
     vim.system({ "rm", "-r", "build" }):wait()
+    print "✅ Build folder cleaned!"
   end
 
   -- Ensure build folder exists
@@ -32,7 +33,7 @@ create_command("BuildProject", function(opts)
   end
 
   -- Run configure
-  print "Genereting CMake from the CMakeLists..."
+  print "⚙️ Generating CMake configuration from CMakeLists.txt..."
   vim
     .system({
       cmake,
@@ -45,12 +46,12 @@ create_command("BuildProject", function(opts)
       "Ninja",
     }, {}, on_exit)
     :wait()
+  print "✅ CMake configuration generated!"
 
   -- Run build
-  print "Building...\n"
+  print "🏗️ Building the project..."
   vim.system({ cmake, "--build", "build/Debug" }, {}, on_exit):wait()
-
-  print "Finish building the project!"
+  print "🎉 Project build complete!"
 end, {
   bang = false,
   desc = "Build a project from CMakeLists.txt on Windows or WSL",
@@ -76,7 +77,7 @@ create_command("FlashProject", function()
   }
 
   -- Run STM32_Programmer_CLI
-  print "Start flashing"
+  print "⚡ Starting flashing process..."
   vim.system({ stm32_cli, unpack(args) }, {}, on_exit):wait()
-  print "Flashing complete!"
+  print "✅ Flashing complete! 🎉"
 end, {})
