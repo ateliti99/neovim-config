@@ -1,6 +1,8 @@
 require "nvchad.options"
 
--- add yours here!
+local o = vim.o
+local system = jit.os
 
--- local o = vim.o
--- o.cursorlineopt ='both' -- to enable cursorline!
+if system == "Windows" then
+  vim.o.shell = "powershell"
+end
