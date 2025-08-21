@@ -7,7 +7,75 @@ require("nvim-dap-virtual-text").setup {
   commented = true, -- Show virtual text alongside comment
 }
 
-dap_python.setup "python3"
+-- dap_python.setup "/home/ateliti/.local/share/nvim/mason/packages/debugpy/venv/bin/python"
+
+local mason_path = vim.fn.stdpath "data" .. "/mason/packages/debugpy/venv/"
+if jit.os == "Windows" then
+  mason_path = mason_path .. "Scripts/python.exe"
+else
+  mason_path = mason_path .. "bin/python"
+end
+
+dap.adapters.python = function(cb, config)
+  if config.request == "attach" then
+    ---@diagnostic disable-next-line: undefined-field
+    local port = (config.connect or config).port
+    ---@diagnostic disable-next-line: undefined-field
+    local host = (config.connect or config).host or "127.0.0.1"
+    cb {
+      type = "server",
+      port = assert(port, "`connect.port` is required for a python `attach` configuration"),
+      host = host,
+      options = {
+        source_filetype = "python",
+      },
+    }
+  else
+    cb {
+      type = "executable",
+      command = mason_path,
+      args = { "-m", "debugpy.adapter" },
+      options = {
+        source_filetype = "python",
+      },
+    }
+  end
+end
+
+dap.configurations.python = {
+  {
+    -- The first three options are required by nvim-dap
+    type = "python", -- the type here established the link to the adapter definition: `dap.adapters.python`
+    request = "launch",
+    name = "Launch file",
+
+    -- Options below are for debugpy, see https://github.com/microsoft/debugpy/wiki/Debug-configuration-settings for supported options
+
+    program = "${file}", -- This configuration will launch the current file if used.
+    pythonPath = function()
+      local cwd = vim.fn.getcwd()
+      local system = jit.os
+
+      if system == "Windows" then
+        if vim.fn.executable(cwd .. "\\venv\\Scripts\\python") == 1 then
+          return cwd .. "\\venv\\Scripts\\python"
+        elseif vim.fn.executable(cwd .. "\\.venv\\Scripts\\python") == 1 then
+          return cwd .. "\\.venv\\Scripts\\python"
+        else
+          return "python"
+        end
+      else
+        if vim.fn.executable(cwd .. "/venv/bin/python") == 1 then
+          return cwd .. "/venv/bin/python"
+        elseif vim.fn.executable(cwd .. "/.venv/bin/python") == 1 then
+          return cwd .. "/.venv/bin/python"
+        else
+          return "python3"
+        end
+      end
+    end,
+  },
+}
 
 vim.fn.sign_define("DapBreakpoint", {
   text = "",
