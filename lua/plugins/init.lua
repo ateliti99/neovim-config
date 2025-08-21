@@ -27,4 +27,19 @@ return {
       },
     },
   },
+
+  {
+    "mfussenegger/nvim-dap",
+    lazy = false,
+    dependencies = {
+      "rcarriga/nvim-dap-ui",
+      "theHamsta/nvim-dap-virtual-text",
+      "jay-babu/mason-nvim-dap.nvim",
+      "nvim-neotest/nvim-nio",
+      "mfussenegger/nvim-dap-python",
+    },
+    config = function()
+      require "configs.dap"
+    end,
+  },
 }
