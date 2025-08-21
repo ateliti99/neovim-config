@@ -27,7 +27,7 @@ create_command("BuildProject", function(opts)
 
   -- Run configure
   print "⚙️ Generating CMake configuration from CMakeLists.txt..."
-  vim
+  local results = vim
     .system({
       cmake,
       "-DCMAKE_TOOLCHAIN_FILE=cmake/gcc-arm-none-eabi.cmake",
@@ -39,11 +39,19 @@ create_command("BuildProject", function(opts)
       "Ninja",
     }, { text = true }, on_exit)
     :wait()
+  if results.code == 1 then
+    print "❌ Error during CMake generation"
+    return
+  end
   print "✅ CMake configuration generated!"
 
   -- Run build
   print "🏗️ Building the project..."
-  vim.system({ cmake, "--build", "build/Debug" }, { text = true }, on_exit):wait()
+  results = vim.system({ cmake, "--build", "build/Debug" }, { text = true }, on_exit):wait()
+  if results.code == 1 then
+    print "❌ Error during the build"
+    return
+  end
   print "🎉 Project build complete!"
 end, {
   bang = false,
@@ -76,4 +84,8 @@ create_command("FlashProject", function()
   print "⚡ Starting flashing process..."
   vim.system({ stm32_cli, unpack(args) }, {}, on_exit):wait()
   print "✅ Flashing complete! 🎉"
-end, {})
+end, {
+  bang = false,
+  desc = "Flash the current project",
+  nargs = "0",
+})
