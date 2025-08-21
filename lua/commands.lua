@@ -87,5 +87,5 @@ create_command("FlashProject", function()
 end, {
   bang = false,
   desc = "Flash the current project",
-  nargs = "0",
+  nargs = 0,
 })
