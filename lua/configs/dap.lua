@@ -1,12 +1,14 @@
 local dap = require "dap"
 local dapui = require "dapui"
 local dap_python = require "dap-python"
+local dap_cortex = require "dap-cortex-debug"
 
 require("dapui").setup {}
 require("nvim-dap-virtual-text").setup {
   commented = true, -- Show virtual text alongside comment
 }
 
+-- Setup python debugger
 local py_debugger = vim.fn.stdpath "data" .. "/mason/packages/debugpy/venv/"
 if jit.os == "Windows" then
   py_debugger = py_debugger .. "Scripts/python.exe"
@@ -16,6 +18,53 @@ end
 
 dap_python.setup(py_debugger)
 
+-- C and C++ DAP configurations
+dap.configurations.c = {}
+dap.configurations.cpp = {}
+
+-- Setup cortex debugger
+dap_cortex.setup {
+  debug = false, -- log debug messages
+  lib_extension = nil, -- Shared libraries extension, tries auto-detecting, e.g. 'so' on unix
+  node_path = "node", -- Path to node.js executable
+  dapui_rtt = true, -- Register nvim-dap-ui RTT element
+  dap_vscode_filetypes = { "c", "cpp" },
+  rtt = {
+    buftype = "Terminal", -- 'Terminal' or 'BufTerminal' for terminal buffer vs normal buffer
+  },
+}
+
+local launch_path = vim.fn.getcwd() .. "/.vscode/launch.json"
+if vim.fn.filereadable(launch_path) > 0 then
+  -- Support variables for updating VSCode variables in real paths
+  local stm_clt_path = "C:/ST/STM32CubeCLT_1.16.0"
+  if jit.os == "Linux" then
+    stm_clt_path = "mnt/c/ST/STM32CubeCLT_1.16.0"
+  end
+  local stm_clt_vscode = "${config:STM32VSCodeExtension.cubeCLT.path}"
+
+  -- Read VSCode launch.json configurations
+  local vscode_launch_config = vim.fn.json_decode(vim.fn.readfile(launch_path)).configurations
+
+  -- Correct configuration from getted from VSCode
+  for _, config in ipairs(vscode_launch_config) do
+    config.ToolchainPath = config.armToolchainPath
+    config.armToolchainPath = nil
+
+    for key, value in pairs(config) do
+      if type(value) == "string" and string.find(value, stm_clt_vscode) then
+        config[key], _ = string.gsub(config[key], stm_clt_vscode, stm_clt_path)
+      elseif key == "executable" then
+        config[key] = "${workspaceFolder}/build/Debug/${workspaceFolderBasename}.elf"
+      end
+    end
+
+    -- Insert corrected configuration
+    table.insert(dap.configurations.c, config)
+  end
+end
+
+-- Redefine simbols
 vim.fn.sign_define("DapBreakpoint", {
   text = "",
   texthl = "DiagnosticSignError",

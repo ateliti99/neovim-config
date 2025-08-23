@@ -37,6 +37,7 @@ return {
       "jay-babu/mason-nvim-dap.nvim",
       "nvim-neotest/nvim-nio",
       "mfussenegger/nvim-dap-python",
+      "jedrzejboczar/nvim-dap-cortex-debug",
     },
     config = function()
       require "configs.dap"
