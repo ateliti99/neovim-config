@@ -1,5 +1,12 @@
--- Commands
 local create_command = vim.api.nvim_create_user_command
+local terminal = require "nvchad.term"
+
+-- Helper to run a command in a floating terminal
+local function run_in_terminal(cmd)
+  terminal.toggle { pos = "float", id = "floatTerm" }
+  vim.cmd "startinsert"
+  vim.api.nvim_chan_send(vim.b.terminal_job_id, cmd .. "\r")
+end
 
 -- Command to build a project from a CMakeLists.txt from CMake configuration in STM32CubeMX
 create_command("BuildProject", function(opts)
@@ -19,71 +26,72 @@ create_command("BuildProject", function(opts)
 
   -- Choose cmake binary depending on system
   local cmake = (system == "Windows") and "cmake" or "/mnt/c/ST/STM32CubeCLT_1.16.0/CMake/bin/cmake.exe"
-  local on_exit = function(obj)
-    vim.schedule(function()
-      vim.notify(obj.stdout, vim.log.levels.INFO)
-    end)
+
+  -- Define the CMake configure and build commands
+  local configure_cmd = string.format(
+    "%s -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DCMAKE_TOOLCHAIN_FILE='cmake/gcc-arm-none-eabi.cmake' -S . -B build/Debug -G Ninja",
+    cmake
+  )
+  local build_cmd = string.format("%s --build build/Debug", cmake)
+
+  -- Create a different final command depending on the OS.
+  local full_cmd
+  if system == "Windows" then
+    -- Windows uses 'pause' to wait for user input.
+    full_cmd = string.format("%s; %s; echo 'Build finished.'; pause", configure_cmd, build_cmd)
+  else
+    -- Linux/WSL uses 'read'.
+    full_cmd =
+      string.format('%s && %s && echo "Build finished. Press Enter to close." && read', configure_cmd, build_cmd)
   end
 
-  -- Run configure
-  print "⚙️ Generating CMake configuration from CMakeLists.txt..."
-  local results = vim
-    .system({
-      cmake,
-      "-DCMAKE_TOOLCHAIN_FILE=cmake/gcc-arm-none-eabi.cmake",
-      "-S",
-      ".",
-      "-B",
-      "build/Debug",
-      "-G",
-      "Ninja",
-    }, { text = true }, on_exit)
-    :wait()
-  if results.code == 1 then
-    print "❌ Error during CMake generation"
-    return
-  end
-  print "✅ CMake configuration generated!"
-
-  -- Run build
-  print "🏗️ Building the project..."
-  results = vim.system({ cmake, "--build", "build/Debug" }, { text = true }, on_exit):wait()
-  if results.code == 1 then
-    print "❌ Error during the build"
-    return
-  end
-  print "🎉 Project build complete!"
+  print "🚀 Starting build in a new terminal..."
+  -- Run the chained command in our helper function
+  run_in_terminal(full_cmd)
 end, {
   bang = false,
   desc = "Build a project from CMakeLists.txt on Windows or WSL",
   nargs = "?",
+  complete = function()
+    return { "clean" }
+  end,
 })
 
+-- Command to flash the project
 create_command("FlashProject", function()
   local system = jit.os
   local stm32_cli = (system == "Windows") and "STM32_Programmer_CLI"
     or "/mnt/c/ST/STM32CubeCLT_1.16.0/STM32CubeProgrammer/bin/STM32_Programmer_CLI.exe"
+
+  -- The ELF file to flash is typically in build/Debug/ and has the same name as the project folder.
   local project_name = vim.fn.fnamemodify(vim.fn.getcwd(), ":t")
+  local elf_file = string.format("build/Debug/%s.elf", project_name)
+
   local args = {
     "--connect",
     "port=swd",
     "--download",
-    project_name,
+    elf_file, -- Use the full path to the ELF file
     "-hardRst",
     "-rst",
     "--start",
   }
 
-  local on_exit = function(obj)
-    vim.schedule(function()
-      vim.notify(obj.stdout, vim.log.levels.INFO)
-    end)
+  -- Combine the executable and its arguments into a single command string
+  local flash_cmd = string.format("%s %s", stm32_cli, table.concat(args, " "))
+
+  -- Create a different final command depending on the OS.
+  local full_cmd
+  if system == "Windows" then
+    -- Windows uses 'pause' to wait for user input.
+    full_cmd = string.format('%s; echo "Flashing finished. Press Enter to close."; pause', flash_cmd)
+  else
+    -- Linux/WSL uses 'read'.
+    full_cmd = string.format('%s && echo "Flashing finished. Press Enter to close." && read', flash_cmd)
   end
 
-  -- Run STM32_Programmer_CLI
-  print "⚡ Starting flashing process..."
-  vim.system({ stm32_cli, unpack(args) }, {}, on_exit):wait()
-  print "✅ Flashing complete! 🎉"
+  print "⚡ Starting flashing process in new terminal..."
+  run_in_terminal(full_cmd)
 end, {
   bang = false,
   desc = "Flash the current project",
