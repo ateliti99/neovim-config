@@ -16,7 +16,7 @@ vim.lsp.config.clangd = {
 
     -- 🛠️ Point clangd to your cross-compiler to find system headers
     -- Replace the path with the actual path to YOUR toolchain's GCC/Clang executable.
-    "--query-driver=C:/ST/STM32CubeCLT_1.16.0/GNU-tools-for-STM32/bin/arm-none-eabi-gcc.exe",
+    "--query-driver=C:/ST/STM32CubeCLT_1.16.0/GNU-tools-for-STM32/bin/*gcc.exe",
   },
   root_markers = { ".git" },
   filetypes = { "c", "cpp" },
